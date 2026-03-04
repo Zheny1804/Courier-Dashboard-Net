@@ -13,10 +13,11 @@ export default function InputPage() {
   const { data: orders, isLoading } = useOrders();
   const createOrder = useCreateOrder();
   const deleteOrder = useDeleteOrder();
+  const [shiftClosed, setShiftClosed] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!amount || isNaN(Number(amount))) return;
+    if (!amount || isNaN(Number(amount)) || shiftClosed) return;
     
     createOrder.mutate({ amount }, {
       onSuccess: () => {
@@ -35,6 +36,24 @@ export default function InputPage() {
   }) || [];
 
   const todayTotal = todaysOrders.reduce((sum, order) => sum + Number(order.amount), 0);
+
+  const closeShift = async () => {
+    try {
+      await fetch('/api/shift/close', { method: 'POST' });
+      setShiftClosed(true);
+    } catch (err) {
+      console.error('Failed to close shift');
+    }
+  };
+
+  const reopenShift = async () => {
+    try {
+      await fetch('/api/shift/reopen', { method: 'POST' });
+      setShiftClosed(false);
+    } catch (err) {
+      console.error('Failed to reopen shift');
+    }
+  };
 
   // Autofocus input on load
   useEffect(() => {
