@@ -1,0 +1,85 @@
+Я хочу создать сетевое веб-приложение "Courier Dashboard" с использованием React (Next.js App Router), TypeScript, Tailwind CSS (shadcn/ui) и Supabase в качестве Backend (Database + Auth + Realtime).
+
+Главная цель: Приложение должно работать в реальном времени. Если пользователь А добавляет заказ на устройстве 1, пользователь Б должен мгновенно увидеть это изменение на устройстве 2, без перезагрузки страницы.
+
+1. Технический стек
+Frontend: Next.js 14, Tailwind CSS, Lucide Icons, Recharts.
+Backend: Supabase (PostgreSQL Database, Supabase Auth, Realtime Subscriptions).
+Data Fetching: Используйте хуки React для управления состоянием, но обновляйте состояние через Supabase Realtime, а не локальный стейт.
+2. Структура базы данных (Supabase Schema)
+Вам нужно создать 3 таблицы в Supabase:
+
+orders
+id: uuid (primary key, default uuid_generate_v4())
+amount: numeric (not null)
+created_at: timestamp with time zone (default now())
+user_id: uuid (references auth.users)
+accurate_payments
+id: uuid (primary key)
+date: date (not null) — формат YYYY-MM-DD
+amount: numeric (not null)
+created_at: timestamp with time zone
+user_id: uuid
+bonus_payments
+id: uuid (primary key)
+start_date: date
+end_date: date
+amount: numeric
+created_at: timestamp with time zone
+user_id: uuid
+Включите Realtime для всех трех таблиц в настройках Supabase.
+
+3. Аутентификация (Supabase Auth)
+Вместо жестко заданных паролей используйте Email/Password вход через Supabase Auth.
+
+Ролевая модель:
+Admin: Может добавлять и удалять данные.
+Viewer: Может только смотреть.
+(Примечание: Для простоты можно разрешить входить всем зарегистрированным пользователям, либо добавить мета-поле role в Supabase Auth, но пока сделайте общий вход для всех авторизованных).
+4. Логика синхронизации (Realtime)
+Каждое представление (View) должно подписываться на изменения в таблице базы данных. Пример логики для orders:
+
+// Загрузка начальных данных
+const { data: orders } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+
+// Реалтайм подписка
+supabase
+  .channel('public:orders')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
+     // Обновляем локальный стейт на основе payload (INSERT, UPDATE, DELETE)
+  })
+  .subscribe();
+Аналогично реализуйте для таблиц accurate_payments и bonus_payments.
+
+5. Функционал по Видам (Views)
+Вид 1: Ввод (Input)
+Создание заказа: При отправке формы делайте supabase.from('orders').insert([{ amount }]).
+Удаление заказа: supabase.from('orders').delete().eq('id', id).
+Отображение: Список заказов обновляется мгновенно на всех устройствах при любом изменении.
+Вид 2: Приблизительная статистика (Approx)
+Фильтры: Фильтрация данных происходит на клиенте из полученного массива заказов.
+График: Recharts AreaChart (сумма заказов по дням).
+Детализация: Список с кнопками удаления (вызывают supabase.from('orders').delete()).
+Вид 3: Точная статистика (Accurate)
+График: AreaChart по данным accurate_payments.
+История: Объединенный список accurate_payments и bonus_payments.
+Форма "Оплата за день":
+Логика: Проверяем, есть ли запись за эту дату.
+Если есть — supabase.from('accurate_payments').update({ amount }).eq('date', date).
+Если нет — supabase.from('accurate_payments').insert([{ date, amount }]).
+Форма "Доплата за период":
+supabase.from('bonus_payments').insert([{ start_date, end_date, amount }]).
+6. Требования к UI/UX
+Уведомления: Используйте Sonner (или toast из shadcn), чтобы показывать пользователю, что "Заказ добавлен" или "Ошибка сети".
+Индикатор загрузки: Пока данные загружаются из Supabase, показывать Skeleton или Loader.
+Локализация: Русский язык (date-fns с локалью ru), форматирование рублей.
+Адаптивность: Приложение должно отлично работать на мобильных телефонах (в поле ввода должен срабатывать Enter, цифры удобны для тапа).
+7. Инициализация
+Создайте файл lib/supabase.ts для инициализации клиента:
+
+import { createClient } from '@supabase/supabase-js'
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+Пожалуйста, реализуйте это приложение. Главное требование — Realtime синхронизация, чтобы 2 и более устройств видели одинаковые данные одновременно.
+
