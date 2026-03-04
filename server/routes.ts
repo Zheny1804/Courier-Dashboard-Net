@@ -84,6 +84,28 @@ export async function registerRoutes(
     res.json(items);
   });
 
+  // Close shift
+  app.post('/api/shift/close', async (req, res) => {
+    try {
+      await storage.closeShift();
+      broadcastUpdate('shift', 'close', {});
+      res.status(200).json({ success: true });
+    } catch (err) {
+      res.status(500).json({ success: false, message: 'Failed to close shift' });
+    }
+  });
+
+  // Reopen shift
+  app.post('/api/shift/reopen', async (req, res) => {
+    try {
+      await storage.reopenShift();
+      broadcastUpdate('shift', 'reopen', {});
+      res.status(200).json({ success: true });
+    } catch (err) {
+      res.status(500).json({ success: false, message: 'Failed to reopen shift' });
+    }
+  });
+
   app.post(api.orders.create.path, async (req, res) => {
     try {
       const username = req.query.username as string;
