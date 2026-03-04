@@ -16,6 +16,8 @@ export interface IStorage {
   getOrders(): Promise<Order[]>;
   createOrder(order: InsertOrder): Promise<Order>;
   deleteOrder(id: number): Promise<void>;
+  closeShift(): Promise<void>;
+  reopenShift(): Promise<void>;
 
   getAccuratePayments(): Promise<AccuratePayment[]>;
   createOrUpdateAccuratePayment(payment: InsertAccuratePayment): Promise<AccuratePayment>;
@@ -25,6 +27,24 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  async closeShift(): Promise<void> {
+    // Обновляем все заказы текущего дня, устанавливая shiftClosed = true
+    const today = new Date().toISOString().split('T')[0];
+    await db.update(orders)
+      .set({ shiftClosed: true })
+      .where(
+        eq(orders.shiftClosed, false)
+      );
+  }
+
+  async reopenShift(): Promise<void> {
+    // Снимаем флаг закрытой смены со всех заказов текущего дня
+    await db.update(orders)
+      .set({ shiftClosed: false })
+      .where(
+        eq(orders.shiftClosed, true)
+      );
+  }
   async getUser(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
